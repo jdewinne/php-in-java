@@ -1,2 +1,5 @@
+.gradle
+.idea
+build
 target/**
 output.html

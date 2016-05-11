@@ -20,6 +20,10 @@ package net.collegeman.phpinjava;
  */
 
 import com.caucho.quercus.*;
+import com.caucho.quercus.servlet.api.QuercusHttpServletRequest;
+import com.caucho.quercus.servlet.api.QuercusHttpServletRequestImpl;
+import com.caucho.quercus.servlet.api.QuercusHttpServletResponse;
+import com.caucho.quercus.servlet.api.QuercusHttpServletResponseImpl;
 import com.caucho.vfs.*;
 import com.caucho.util.*;
 import com.caucho.quercus.env.*;
@@ -31,6 +35,9 @@ import java.io.*;
 import java.util.*;
 
 import org.springframework.mock.web.*;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 /**
  * <p>Instances of this class wrap one or more PHP scripts, making it possible for
@@ -177,8 +184,8 @@ public class PHP {
 	}
 	
 	private Env env;
-	private MockHttpServletRequest request;
-	private MockHttpServletResponse response;
+	private HttpServletRequest request;
+	private HttpServletResponse response;
 	private StreamImpl out;
 	private WriteStream ws;
 	
@@ -186,19 +193,24 @@ public class PHP {
 		if (env == null) {
 			request = new MockHttpServletRequest();
 			response = new MockHttpServletResponse();
+
+			QuercusHttpServletRequest quercusRequest = new QuercusHttpServletRequestImpl(request);
+			QuercusHttpServletResponse quercusResponse = new QuercusHttpServletResponseImpl(response);
 			
 			WriterStreamImpl writer = new WriterStreamImpl();
 			try {
 				writer.setWriter(response.getWriter());
 			} catch (UnsupportedEncodingException e) {
 				throw new RuntimeException(e);
+			} catch (IOException e) {
+				e.printStackTrace();
 			}
-			
+
 			out = writer;
 			ws = new WriteStream(out);
 			ws.setNewlineString("\n");
 			
-			env = getQuercus().createEnv(page, ws, request, response);
+			env = getQuercus().createEnv(page, ws, quercusRequest, quercusResponse);
 			
 			env.setPwd(new FilePath(System.getProperty("user.dir")));
 			
@@ -278,7 +290,7 @@ public class PHP {
 		if (env != null) {
 			try {
 				ws.flush();
-				return response.getContentAsString();
+				return ((MockHttpServletResponse)response).getContentAsString();
 			} catch (UnsupportedEncodingException e) {
 				throw new RuntimeException(e);
 			} catch (IOException e) {
@@ -296,7 +308,7 @@ public class PHP {
 	 * @return This instance of <code>PHP</code>, to support method chaining.
 	 */
 	public PHP clear() {
-		response.setCommitted(false);
+		((MockHttpServletResponse)response).setCommitted(false);
 		response.reset();
 		return this;
 	}
@@ -311,10 +323,10 @@ public class PHP {
 			for (int i=0; i<args.length; i++)
 				values[i] = toValue(getEnv(), args[i]);
 				
-			return new PHPObject(getEnv(), getEnv().call(fxName, values));
+			return new PHPObject(getEnv(), getEnv().call(new ConstStringValue(fxName), values));
 		}
 		else {
-			return new PHPObject(getEnv(), getEnv().call(fxName));
+			return new PHPObject(getEnv(), getEnv().call(new ConstStringValue(fxName)));
 		}
 	}
 	
