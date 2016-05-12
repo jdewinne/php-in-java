@@ -70,6 +70,8 @@ public class PHP {
 	private synchronized Quercus getQuercus() {
 		if (quercus == null) {
 			quercus = new Quercus();
+            quercus.init();
+            quercus.start();
 		}		
 		return quercus;
 	}
